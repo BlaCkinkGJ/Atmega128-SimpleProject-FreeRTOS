@@ -1,42 +1,19 @@
 ﻿#include "FreeRTOS.h"
 #include "task.h"
 #include "LED.h"
-// Output Port pin LED_O
-#define ledtestPORT_LED_O      PORTD
-#define ledtestDDR_LED_O       DDRD
-#define ledtestBIT_LED_O       0
 
-void vLEDTestInitialise( void )
-{
-    /* Set port B direction to outputs.  Start with all output off. */
-    ledtestDDR_LED_O |= (1<<ledtestBIT_LED_O);
-    ledtestPORT_LED_O &= ~(1<<ledtestBIT_LED_O);
+void vLEDinit( volatile uint8_t *ddr, uint8_t bit ) {
+    *ddr |= (1 << bit);
 }
-/*-----------------------------------------------------------*/
 
-void vLEDTestSetLED( signed portBASE_TYPE xValue )
-{
-
-    vTaskSuspendAll();
-    {
-        if( xValue == pdTRUE )
-        {
-            ledtestPORT_LED_O &= ~(1<<ledtestBIT_LED_O);
-        }
-        else
-        {
-            ledtestPORT_LED_O |= (1<<ledtestBIT_LED_O);
-        }
+void vLEDset( volatile uint8_t *port, uint8_t bit, signed portBASE_TYPE xValue ) {
+    if (xValue == pdTRUE) {
+        *port &= ~(1 << bit);
+    } else {
+        *port |= (1 << bit);
     }
-    xTaskResumeAll();
-
 }
-void vLEDTestToggleLED( void )
-{
-    vTaskSuspendAll();
-    {
-        ledtestPORT_LED_O ^= (1<<ledtestBIT_LED_O);
-    }
-    xTaskResumeAll();
 
+void vLEDtoggle( volatile uint8_t *port, uint8_t bit) {
+    *port ^= (1 << bit);
 }
