@@ -8,8 +8,10 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "LED.h"
+#include "usart.h"
 
-#define mainLED_TASK_PRIORITY tskIDLE_PRIORITY
+#define LED_TASK_PRIO 1
+#define USART_TASK_PRIO tskIDLE_PRIORITY 
 
 void vLEDFlashTask1(void *pvParameters) {
     portTickType xLastWakeTime;
@@ -33,18 +35,42 @@ void vLEDFlashTask2(void *pvParameters) {
     }
 }
 
+void vUSARTCommunicationTask(void *pvParameters) {
+    portTickType xLastWakeTime;
+    const portTickType xFrequency = 10;
+    struct usart_conf_t conf = {
+        .fosc = F_CPU,
+        .baud = 9600
+    };
+    usart_init(conf);
+    xLastWakeTime = xTaskGetTickCount();
+
+    while (1) {
+        unsigned char buffer = '\0';
+        buffer = usart_receive();
+        if (buffer != '\0') usart_transmit(buffer);
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    }
+}
+
 portSHORT main(void){
     xTaskCreate(vLEDFlashTask1,
                 (const char *)"LED1",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                mainLED_TASK_PRIORITY,
+                LED_TASK_PRIO,
                 NULL);
     xTaskCreate(vLEDFlashTask2,
                 (const char *)"LED2",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                mainLED_TASK_PRIORITY,
+                LED_TASK_PRIO,
+                NULL);
+    xTaskCreate(vUSARTCommunicationTask,
+                (const char *)"USART",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                USART_TASK_PRIO,
                 NULL);
     vTaskStartScheduler();
     
