@@ -12,3 +12,5 @@ If you want to find the specific function, then I strongly recommend this reposi
 ## LED Example(tags: LED_example)
 
 This uses PD0 and PD1. One blinks every 500ms and the other blinks every 1s program. When you run this program. You have to add the driver folder to your project properties include setting!
+
+![LED Test Video](Video/LED_test.gif)
