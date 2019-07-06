@@ -8,3 +8,7 @@ I use the below picture's embedded board.
 
 This project not only uses ATmega128 but also uses [FreeRTOS](https://www.freertos.org/) which is the best open source real-time operating system.
 If you want to find the specific function, then I strongly recommend this repository's tags.
+
+## LED Example(tags: LED_example)
+
+This uses PD0 and PD1. One blinks every 500ms and the other blinks every 1s program. When you run this program. You have to add the driver folder to your project properties include setting!
