@@ -11,12 +11,14 @@
  */ 
 #include "usart.h"
 
-static unsigned char usart_get_ubrr(struct usart_conf_t conf) {
+static QueueHandle_t usart_interrupt_queue;
+
+static unsigned char usartGetUbrr(struct UsartConfigure_t conf) {
 	return conf.fosc/16/conf.baud - 1;
 }
 
-void usart_init(struct usart_conf_t conf) {
-	unsigned char ubrr = usart_get_ubrr(conf);
+void vUsartInit(struct UsartConfigure_t conf) {
+	unsigned char ubrr = usartGetUbrr(conf);
 
     /* Set baud rate */
     USART_UBRRH = (unsigned char) (ubrr >> 8);
@@ -26,9 +28,9 @@ void usart_init(struct usart_conf_t conf) {
     USART_UCSRB = (1 << USART_RXEN) | (1 << USART_TXEN)
 #ifdef USART_INTERRUPT_ENABLE
            | (1 << USART_RXCIE);
-    cbi(USART_INTERRUPT_PORT, USART_INTERRUPT_RX_PIN);
-    sbi(USART_INTERRUPT_PORT, USARt_INTERRUPT_TX_PIN);
-    //queue_init(&usart_queue)
+    USART_INTERRUPT_PORT &= ~(1 << USART_INTERRUPT_RX_PIN);
+    USART_INTERRUPT_PORT |= (1 << USARt_INTERRUPT_TX_PIN);
+    usart_interrupt_queue = xQueueCreate(10, sizeof(char));
 #endif
     ;
 
@@ -37,7 +39,7 @@ void usart_init(struct usart_conf_t conf) {
     USART_UCSRC = (1 << USART_USBS) | (3 << UCSZ0);
 }
 
-void usart_transmit(unsigned char data) {
+void vUsartTransmit(unsigned char data) {
     /* Wait for empty transmit buffer */
     while (!(USART_UCSRA & (1 << USART_UDRE)))
         ;
@@ -45,39 +47,30 @@ void usart_transmit(unsigned char data) {
     USART_UDR = data;
 }
 
-unsigned char usart_receive(void) {
+unsigned char vUsartReceive(void) {
+#ifdef USART_INTERRUPT_ENABLE
+    int ret = '\0';
+    if (!xQueueReceive(usart_interrupt_queue, &(ret), (TickType_t)portMAX_DELAY))
+        return ret;
+    return ret;
+#else
     /* Wait for data to be received */
     while(!(USART_UCSRA & (1 << USART_RXC)))
         ;
 
     /* Get and return received data from buffer */
     return USART_UDR;
+#endif
 }
 
 #ifdef USART_INTERRUPT_ENABLE
-static char g_buffer;
-unsigned char usart_get_buffer (void){
-    int ret = g_buffer;
-    g_buffer = '\0';
-    return ret;
-    //char ret = queue_get(&usart_queue);
-    //return ret == -1 ? '\0' : ret;
-}
-
 ISR(USART_RX_VECT){
-    /* Get and return received data from buffer */
-    //queue_put(&usart_queue, UDR0);
-    g_buffer = USART_UDR;
-}
-
-/************************************************************************/
-/* usart flush function returns dummy data.                             */
-/* This makes programmer can know which data is dummy                   */
-/************************************************************************/
-void usart_flush(void) {
-    unsigned char dummy = '\0';
-    while (USART_UCSRA & (1 << USART_RXC))
-        dummy = USART_UDR;
+    BaseType_t xHigherPriorityTaskWoken = pdTRUE;
+    xQueueSendFromISR(usart_interrupt_queue,
+                      (const void *) &USART_UDR,
+                      &xHigherPriorityTaskWoken);
+    if (xHigherPriorityTaskWoken)
+        taskYIELD();
 }
 
 #endif

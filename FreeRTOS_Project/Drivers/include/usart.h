@@ -15,7 +15,7 @@
 
 #define F_CPU 16000000UL
 
-//#define USART_INTERRUPT_ENABLE ;
+#define USART_INTERRUPT_ENABLE ;
 
 #define USART_UBRRH UBRR1H
 #define USART_UBRRL UBRR1L
@@ -33,7 +33,7 @@
 
 #define USART_RXC RXC1
 
-
+/* interrupt related section */
 #ifdef USART_INTERRUPT_ENABLE
 #define USART_RXCIE RXCIE1
 #define USART_RX_VECT USART1_RX_vect
@@ -52,20 +52,21 @@
 /* };                                                                   */
 /* This configuration is very reasonable for your programming           */
 /************************************************************************/
-struct usart_conf_t {
+struct UsartConfigure_t {
     unsigned long fosc;
     unsigned long baud;
 };
 
-void          usart_init       (struct usart_conf_t);
-void          usart_transmit   (unsigned char);
-unsigned char usart_receive    (void);
-void          usart_flush      (void);
+void          vUsartInit       (struct UsartConfigure_t);
+void          vUsartTransmit   (unsigned char);
+unsigned char vUsartReceive    (void);
+//@TODO: make a read the string and write the string.
 
 #ifdef USART_INTERRUPT_ENABLE
 #include <avr/interrupt.h>
-
-unsigned char usart_get_buffer (void);
+#include "FreeRTOS.h" // THIS IS NECESSARY!! DO NOT FORGET THIS!
+#include "queue.h"
+#include "limits.h"
 #endif
 
 

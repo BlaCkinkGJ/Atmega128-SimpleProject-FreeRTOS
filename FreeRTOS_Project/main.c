@@ -7,53 +7,62 @@
 #include <avr/io.h>
 #include "FreeRTOS.h"
 #include "task.h"
-#include "LED.h"
+#include "queue.h"
+#include "limits.h"
+#include "led.h"
 #include "usart.h"
 
 #define LED_TASK_PRIO 1
 #define USART_TASK_PRIO tskIDLE_PRIORITY 
 
+QueueHandle_t ledQueue[2];
+
 void vLEDFlashTask1(void *pvParameters) {
-    portTickType xLastWakeTime;
-    const portTickType xFrequency = 500;
     vLEDinit(&DDRD, 0);
-    xLastWakeTime = xTaskGetTickCount();
     while(1) {
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        char recv = 0;
+        if (!xQueueReceive(ledQueue[0], &(recv), (TickType_t)portMAX_DELAY))
+            continue;
         vLEDtoggle(&PORTD, 0);
     }
 }
 
 void vLEDFlashTask2(void *pvParameters) {
-    portTickType xLastWakeTime;
-    const portTickType xFrequency = 1000;
-    xLastWakeTime = xTaskGetTickCount();
     vLEDinit(&DDRD, 1);
     while(1) {
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        char recv = 0;
+        if (!xQueueReceive(ledQueue[1], &(recv), (TickType_t)portMAX_DELAY))
+            continue;
         vLEDtoggle(&PORTD, 1);
     }
 }
 
 void vUSARTCommunicationTask(void *pvParameters) {
-    portTickType xLastWakeTime;
-    const portTickType xFrequency = 10;
-    struct usart_conf_t conf = {
+    struct UsartConfigure_t conf = {
         .fosc = F_CPU,
         .baud = 9600
     };
-    usart_init(conf);
-    xLastWakeTime = xTaskGetTickCount();
+    vUsartInit(conf);
 
     while (1) {
         unsigned char buffer = '\0';
-        buffer = usart_receive();
-        if (buffer != '\0') usart_transmit(buffer);
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        buffer = vUsartReceive();
+        if (buffer != '\0')
+            vUsartTransmit(buffer);
+        switch (buffer) {
+        case '0':
+            xQueueSend(ledQueue[0], &(buffer), (TickType_t)portMAX_DELAY);
+            break;
+        case '1':
+            xQueueSend(ledQueue[1], &(buffer), (TickType_t)portMAX_DELAY);
+            break;
+        }
     }
 }
 
 portSHORT main(void){
+    for (int i = 0 ; i < 2; i++)
+        ledQueue[i] = xQueueCreate(5, sizeof(char));
     xTaskCreate(vLEDFlashTask1,
                 (const char *)"LED1",
                 configMINIMAL_STACK_SIZE,
