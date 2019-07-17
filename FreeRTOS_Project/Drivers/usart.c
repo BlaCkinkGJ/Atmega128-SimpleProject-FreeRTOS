@@ -47,6 +47,18 @@ void vUsartTransmit(unsigned char data) {
     USART_UDR = data;
 }
 
+void vUsartTransmitString(const char *data) {
+    portTickType xLastWakeTime;
+    const portTickType xFreqeuency = 1;
+
+    xLastWakeTime = xTaskGetTickCount();
+    int i = 0;
+    for (i = 0; i < strlen(data); i++) {
+        vUsartTransmit(data[i]);
+        vTaskDelayUntil(&xLastWakeTime, xFreqeuency);
+    }
+}
+
 unsigned char vUsartReceive(void) {
 #ifdef USART_INTERRUPT_ENABLE
     int ret = '\0';
@@ -61,6 +73,21 @@ unsigned char vUsartReceive(void) {
     /* Get and return received data from buffer */
     return USART_UDR;
 #endif
+}
+
+void vUsartReceiveString(char *buffer, size_t size, bool echoEnable){
+    int i = 0;
+
+    while(i < size) {
+        buffer[i] = vUsartReceive();
+        if (echoEnable == true)
+            vUsartTransmit(buffer[i]);
+        if (buffer[i] == '\r' || buffer[i] == '\n') {
+            buffer[i] = '\0';
+            break;
+        }
+        i++;
+    }
 }
 
 #ifdef USART_INTERRUPT_ENABLE

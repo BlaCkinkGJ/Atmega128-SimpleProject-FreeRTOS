@@ -12,6 +12,7 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define F_CPU 16000000UL
 
@@ -57,9 +58,11 @@ struct UsartConfigure_t {
     unsigned long baud;
 };
 
-void          vUsartInit       (struct UsartConfigure_t);
-void          vUsartTransmit   (unsigned char);
-unsigned char vUsartReceive    (void);
+void          vUsartInit             (struct UsartConfigure_t);
+void          vUsartTransmit         (unsigned char);
+void          vUsartTransmitString   (const char *);
+unsigned char vUsartReceive          (void);
+void          vUsartReceiveString    (char *, size_t, bool);
 //@TODO: make a read the string and write the string.
 
 #ifdef USART_INTERRUPT_ENABLE

@@ -14,6 +14,7 @@
 
 #define LED_TASK_PRIO 1
 #define USART_TASK_PRIO tskIDLE_PRIORITY 
+#define MAX_BUFFER 10
 
 QueueHandle_t ledQueue[2];
 
@@ -45,17 +46,14 @@ void vUSARTCommunicationTask(void *pvParameters) {
     vUsartInit(conf);
 
     while (1) {
-        unsigned char buffer = '\0';
-        buffer = vUsartReceive();
-        if (buffer != '\0')
-            vUsartTransmit(buffer);
-        switch (buffer) {
-        case '0':
+        char buffer[MAX_BUFFER];        
+        vUsartTransmitString("% ");
+        vUsartReceiveString(buffer, MAX_BUFFER, true);
+
+        if (!strcmp(buffer, "LED0")) {
             xQueueSend(ledQueue[0], &(buffer), (TickType_t)portMAX_DELAY);
-            break;
-        case '1':
+        } else if (!strcmp(buffer, "LED1")) {
             xQueueSend(ledQueue[1], &(buffer), (TickType_t)portMAX_DELAY);
-            break;
         }
     }
 }
