@@ -14,7 +14,9 @@
 #include <stdbool.h>
 #include <string.h>
 
+#ifndef F_CPU
 #define F_CPU 16000000UL
+#endif
 
 #define USART_INTERRUPT_ENABLE ;
 

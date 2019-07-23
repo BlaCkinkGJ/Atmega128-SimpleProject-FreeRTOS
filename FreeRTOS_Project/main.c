@@ -7,34 +7,63 @@
 #include <avr/io.h>
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
+#include "event_groups.h"
 #include "limits.h"
-#include "led.h"
+#include "gpio.h"
 #include "usart.h"
 
-#define LED_TASK_PRIO 1
+#define DATA_TASK_PRIO 2
+#define CLOCK_TASK_PRIO 3
 #define USART_TASK_PRIO tskIDLE_PRIORITY 
-#define MAX_BUFFER 10
 
-QueueHandle_t ledQueue[2];
+#define BIT_0 (1 << 0)
+#define BIT_1 (1 << 1)
 
-void vLEDFlashTask1(void *pvParameters) {
-    vLEDinit(&DDRD, 0);
+EventGroupHandle_t xEventGroup;
+
+void useVoltageSupply(volatile uint8_t *ddr, volatile uint8_t *port, uint8_t pin) {
+   vGPIOinit(ddr, pin);
+   vGPIOset(port, pin, 1);
+}
+
+void vSetDataPathValue(void *pvParameters) {
+    EventBits_t uxBits;
+
+    vGPIOinit(&DDRD, 0);
+    vGPIOinit(&DDRD, 1);
+
     while(1) {
-        char recv = 0;
-        if (!xQueueReceive(ledQueue[0], &(recv), (TickType_t)portMAX_DELAY))
-            continue;
-        vLEDtoggle(&PORTD, 0);
+        uxBits = xEventGroupWaitBits(xEventGroup,
+                                     BIT_0 | BIT_1,
+                                     pdTRUE,
+                                     pdFALSE,
+                                     portMAX_DELAY);
+        if ((uxBits & (BIT_0 | BIT_1)) == (BIT_0 | BIT_1)) {
+            vGPIOset(&PORTD, 0, 1);
+            vGPIOset(&PORTD, 1, 1);
+        } else if ((uxBits & BIT_0) != 0) {
+            vGPIOset(&PORTD, 0, 1);
+            vGPIOset(&PORTD, 1, 0);
+        } else if ((uxBits & BIT_1) != 0) {
+            vGPIOset(&PORTD, 0, 0);
+            vGPIOset(&PORTD, 1, 1);
+        } else { /* When time-out occurred */
+            vGPIOset(&PORTD, 0, 0);
+            vGPIOset(&PORTD, 1, 0);
+        }
     }
 }
 
-void vLEDFlashTask2(void *pvParameters) {
-    vLEDinit(&DDRD, 1);
-    while(1) {
-        char recv = 0;
-        if (!xQueueReceive(ledQueue[1], &(recv), (TickType_t)portMAX_DELAY))
-            continue;
-        vLEDtoggle(&PORTD, 1);
+void vD_FlipFlopClock(void *pvParameters) {
+    TickType_t xLastWakeTime;
+    const TickType_t xFrequency = 5000;
+
+    vGPIOinit(&DDRD, 4);
+    xLastWakeTime = xTaskGetTickCount();
+    while(4) {
+        vGPIOset(&PORTD, 4, 1);
+        vGPIOset(&PORTD, 4, 0);
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
@@ -46,32 +75,34 @@ void vUSARTCommunicationTask(void *pvParameters) {
     vUsartInit(conf);
 
     while (1) {
-        char buffer[MAX_BUFFER];        
-        vUsartTransmitString("% ");
-        vUsartReceiveString(buffer, MAX_BUFFER, true);
+        char bitseq = vUsartReceive() - '0';
 
-        if (!strcmp(buffer, "LED0")) {
-            xQueueSend(ledQueue[0], &(buffer), (TickType_t)portMAX_DELAY);
-        } else if (!strcmp(buffer, "LED1")) {
-            xQueueSend(ledQueue[1], &(buffer), (TickType_t)portMAX_DELAY);
-        }
+        xEventGroupSetBits(xEventGroup,
+                           bitseq);
+        vUsartTransmit(((bitseq & 0x02) >> 1)+'0');
+        vUsartTransmit((bitseq & 0x01)+'0');
+        vUsartTransmit('\r');
+        vUsartTransmit('\n');
     }
 }
 
 portSHORT main(void){
-    for (int i = 0 ; i < 2; i++)
-        ledQueue[i] = xQueueCreate(5, sizeof(char));
-    xTaskCreate(vLEDFlashTask1,
-                (const char *)"LED1",
+    useVoltageSupply(&DDRD, &PORTD, 5);
+    xEventGroup = xEventGroupCreate();
+
+    if (xEventGroup == NULL)
+        return -1;
+    xTaskCreate(vSetDataPathValue,
+                (const char *)"SetData",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                LED_TASK_PRIO,
+                DATA_TASK_PRIO,
                 NULL);
-    xTaskCreate(vLEDFlashTask2,
-                (const char *)"LED2",
+    xTaskCreate(vD_FlipFlopClock,
+                (const char *)"Clock",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                LED_TASK_PRIO,
+                CLOCK_TASK_PRIO,
                 NULL);
     xTaskCreate(vUSARTCommunicationTask,
                 (const char *)"USART",

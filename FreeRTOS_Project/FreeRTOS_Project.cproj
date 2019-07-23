@@ -147,13 +147,19 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Drivers\include\LED.h">
+    <Compile Include="Drivers\ds18b20.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\include\ds1b820.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\include\GPIO.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="Drivers\include\usart.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Drivers\LED.c">
+    <Compile Include="Drivers\GPIO.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="Drivers\usart.c">
